@@ -1,0 +1,31 @@
+.rounded-corners (@radius: 5px) {
+  border-radius: @radius;
+  -webkit-border-radius: @radius;
+  -moz-border-radius: @radius;
+}
+
+.circle (@radius: 20px) {
+  width: @radius * 2;
+  height: @radius * 2;
+  .rounded-corners(@radius);
+}
+
+.indicator {
+  margin: 10px;
+  width: 10px;
+  height: 10px;
+  background: #000;
+}
+
+.g-entity {
+  position: absolute;
+  top: 0px;
+  left: 0px;
+
+  .circle(50px);
+  background: #B6E974;
+
+  &.table-card {
+    background: #E8A674;
+  }
+}
