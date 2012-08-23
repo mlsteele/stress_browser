@@ -40,6 +40,7 @@ expand_on_touch_circle = (el) ->
       'border-top-right-radius': r
       'border-bottom-left-radius': r
       'border-bottom-right-radius': r
+      'line-height': r * 2 + 'px'
 
   $el.bind 'touchstart', ->
     set_size(rads[1])
@@ -55,6 +56,17 @@ expand_on_touch_circle = (el) ->
     $el.css
       left: parseInt($el.css('left')) + rads[1] - rads[0]
       top : parseInt($el.css('top')) + rads[1] - rads[0]
+
+make_card_envoy = (card) ->
+  $ 'div'
+  $div = $ '<div/>',
+    class: 'g-entity card'
+    text: '8'
+  $div.data 'card', card
+  $div.appendTo $ '#container'
+  make_touch_draggable $div
+  expand_on_touch_circle $div
+  return $div
 
 $ =>
   indicate = (color) -> $('.indicator').css background: color
@@ -76,12 +88,22 @@ $ =>
   _.each $('.enemy-hand'), (eh, i) ->
     pad = $('#row1').width() - $(eh).width() * 6
     $(eh).css
-      top: $('#row1').height() / 2
-      left: (pad / 7 + $(eh).width()) * i + pad / 7 / 2
+      left: (pad / 6 + $(eh).width()) * i + pad / 7 / 2
+      top: $('#row1').height() / 2 - $(eh).height() / 2
+
+  _.each $('.client-hand'), (ch, i) ->
+    wpad = $('#row4').width() - $(ch).width() * 3
+    $(ch).css
+      left: (wpad / 3 + $(ch).width()) * (i % 3) + wpad / 4 / 2
+      top: (reduce ['#row1', '#row2', '#row3'], 0, (a, n) -> a + $(n).height()) + 100 + Math.floor(i / 3) * 220
 
   deck = reduce (_.map [[{n: n, suit: suit} for n in [1..13]] for suit in [0...4]][0], (a) -> a[0]), [], (a,b) -> a.concat b
   log "generated #{deck.length} cards"
 
-  _.each $('.enemy-hand'), make_touch_draggable
+  _.each $('.client-hand'), expand_on_touch_circle
 
-  _.each $('.enemy-hand'), expand_on_touch_circle
+  for i in [0...4]
+    $ce = $(make_card_envoy(deck[i]))
+    $ce.css
+      left: 120 + i * 200
+      top: (reduce ['#row1'], 0, (a, n) -> a + $(n).height()) + 110
