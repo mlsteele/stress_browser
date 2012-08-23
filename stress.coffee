@@ -61,7 +61,7 @@ make_card_envoy = (card) ->
   $ 'div'
   $div = $ '<div/>',
     class: 'g-entity card'
-    text: '8'
+    text: [0,1,2,3,4,5,6,7,8,9,10,'J','Q','K'][card.n]
   $div.data 'card', card
   $div.appendTo $ '#container'
   make_touch_draggable $div
@@ -92,18 +92,44 @@ $ =>
       top: $('#row1').height() / 2 - $(eh).height() / 2
 
   _.each $('.client-hand'), (ch, i) ->
-    wpad = $('#row4').width() - $(ch).width() * 3
+    left_offset = 210
     $(ch).css
-      left: (wpad / 3 + $(ch).width()) * (i % 3) + wpad / 4 / 2
-      top: (reduce ['#row1', '#row2', '#row3'], 0, (a, n) -> a + $(n).height()) + 100 + Math.floor(i / 3) * 220
+      left: (i % 3) * ($('#row4').width()/2 - left_offset - $(ch).width()/2) + left_offset
+      top: (reduce ['#row1', '#row2', '#row3'], 0, (a, n) -> a + $(n).height()) + 190 + Math.floor(i / 3) * 220
 
   deck = reduce (_.map [[{n: n, suit: suit} for n in [1..13]] for suit in [0...4]][0], (a) -> a[0]), [], (a,b) -> a.concat b
   log "generated #{deck.length} cards"
 
   _.each $('.client-hand'), expand_on_touch_circle
 
+  # place initial table cards
   for i in [0...4]
     $ce = $(make_card_envoy(deck[i]))
     $ce.css
       left: 120 + i * 200
       top: (reduce ['#row1'], 0, (a, n) -> a + $(n).height()) + 110
+
+  # fill client hands
+  _.each $('.client-hand'), (h) -> $(h).data('cards', [])
+  log "filled empty client hands"
+  for i in [4...4 + 24]
+    $target_hand = $((_.filter $('.client-hand'), (ch) -> $(ch).data('cards').length < 4)[0])
+    $target_hand.data('cards').push deck[i]
+
+  # enable client hands squeeze
+  _.each $('.client-hand'), (ch) ->
+    $ch = $(ch)
+    $ch.data 'card_envoys', []
+    $ch.bind 'touchstart', (e) ->
+      log "clicked card #{[c.n for c in ($ch.data 'cards')]}"
+      $ch.data 'card_envoys', _.map ($ch.data 'cards'), make_card_envoy
+      center = [$ch.offset().x + $ch.width() / 2, $ch.offset().y + $ch.height() / 2]
+      _.each ($ch.data 'card_envoys'), (ce, i) ->
+        $(ce).css
+          left: parseInt($ch.css 'left') + (i-2) * ($(ce).width() + 5) + $(ce).width() / 2
+          top : parseInt($ch.css 'top') - $(ce).height() - 20
+
+    $ch.bind 'touchend', ->
+      _.each ($ch.data 'card_envoys'), (ce) -> 
+        $(ce).remove()
+      $ch.data 'card_envoys', []

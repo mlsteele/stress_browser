@@ -16,6 +16,7 @@ body {
 }
 
 #container {
+  @color-black: #000;
   @color-dark: #463F3F;
   @color-blue: #A395CE;
 
@@ -33,10 +34,10 @@ body {
     left: 0px;
 
     .circle(50px);
-    background: #B6E974;
+    background: @color-blue;
 
     &.card {
-      background: #E8A674;
+      background: @color-blue;
 
       line-height: 90px;
       color: #fff;
@@ -55,9 +56,9 @@ body {
       background: @color;
     }
 
-    &#row1 {.row-mix(20%, #f00)}
-    &#row2 {.row-mix(30%, #ff0)}
-    &#row3 {.row-mix(0%, #f0f)}
-    &#row4 {.row-mix(50%, #0ff)}
+    &#row1 {.row-mix(20%, @color-dark)}
+    &#row2 {.row-mix(30%, @color-black)}
+    &#row3 {.row-mix(0%, @color-dark)}
+    &#row4 {.row-mix(50%, @color-dark)}
   }
 }
