@@ -6,8 +6,8 @@ log = -> console.log.apply console, arguments
     @set 'view engine': 'jade'
     @set 'view options': {layout: false}
     @use 'bodyParser', 'methodOverride', 'static'
-    @use require('connect-assets')(src: "#{__dirname}")
-    @use 'static'
+    # @use require('connect-assets')(src: "#{__dirname}")
+    # @use 'static'
 
   @app.get '/', (req,res) ->
     res.render 'stress'
