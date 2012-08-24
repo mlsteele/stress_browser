@@ -3,7 +3,7 @@ reduce = (list, memo, iterator) -> _.reduce list, iterator, memo
 
 log 'STRESS'
 
-make_touch_draggable = (el) ->
+make_touch_draggable = (el, ybounds={min: (-> -Infinity), max: (-> Infinity)}) ->
   $el = $(el)
   tx = 'touch-draggable-last-mouse-x'
   ty = 'touch-draggable-last-mouse-y'
@@ -24,9 +24,11 @@ make_touch_draggable = (el) ->
     e.stopPropagation()
     touch = e.originalEvent.targetTouches[0]
 
+    newy = parseInt($el.css 'top')  + touch.clientY - $el.data(ty)
+
     $el.css
       left: parseInt($el.css 'left') + touch.clientX - $el.data(tx)
-      top : parseInt($el.css 'top')  + touch.clientY - $el.data(ty)
+      top : Math.max(ybounds.min(), Math.min(newy, ybounds.max()))
     # log "current (post) css: " + [($el.css 'left'), ($el.css 'top')]
 
     $el.data tx, touch.clientX
@@ -50,7 +52,11 @@ $ =>
       text: [null,'A',2,3,4,5,6,7,8,9,10,'J','Q','K'][card.n]
     $div.data 'card', card
     $div.appendTo $ '#container'
-    make_touch_draggable $div
+    make_touch_draggable $div,
+      min: _.memoize -> $('#row2').position().top
+      max: -> if card_envoys_on_table().length <= 4
+          $('#row2').position().top + $('#row2').height() - 100
+        else Infinity
     $div.bind 'touchend', -> attempt_client_hand_close()
     return $div
 
@@ -120,6 +126,12 @@ $ =>
       $ce = $(card_envoy)
       $ce.position().top + $ce.height() / 2 > $('#row2').position().top + $('#row2').height()
 
+  card_envoys_on_table = ->
+    _.filter gstate.card_envoys_on_surface, (card_envoy) ->
+      $ce = $(card_envoy)
+      $ce.position().top + $ce.height() / 2 < $('#row2').position().top + $('#row2').height()
+
+
   attempt_client_hand_close = ->
     log "attempting client hand close"
     return true if gstate.open_hand is null
@@ -132,6 +144,7 @@ $ =>
     $(gstate.open_hand).data 'cards', _.map ceoh, (card_envoy) ->
       $ch = $(card_envoy)
       card = $ch.data 'card'
+      gstate.card_envoys_on_surface = _.without gstate.card_envoys_on_surface, $ch
       $ch.remove()
       card
 
