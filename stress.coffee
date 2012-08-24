@@ -61,7 +61,7 @@ make_card_envoy = (card) ->
   $ 'div'
   $div = $ '<div/>',
     class: 'g-entity card'
-    text: [0,1,2,3,4,5,6,7,8,9,10,'J','Q','K'][card.n]
+    text: [null,'A',2,3,4,5,6,7,8,9,10,'J','Q','K'][card.n]
   $div.data 'card', card
   $div.appendTo $ '#container'
   make_touch_draggable $div
@@ -85,22 +85,26 @@ $ =>
   $('.table-card').bind 'touchend', ->
     indicate '#f00'
 
+  # place enemy hands
   _.each $('.enemy-hand'), (eh, i) ->
     pad = $('#row1').width() - $(eh).width() * 6
     $(eh).css
       left: (pad / 6 + $(eh).width()) * i + pad / 7 / 2
       top: $('#row1').height() / 2 - $(eh).height() / 2
 
+  # place client hands
   _.each $('.client-hand'), (ch, i) ->
     left_offset = 210
     $(ch).css
       left: (i % 3) * ($('#row4').width()/2 - left_offset - $(ch).width()/2) + left_offset
-      top: (reduce ['#row1', '#row2', '#row3'], 0, (a, n) -> a + $(n).height()) + 190 + Math.floor(i / 3) * 220
+      top: (reduce ['#row1', '#row2', '#row3'], 0, (a, n) -> a + $(n).height()) + 150 + Math.floor(i / 3) * 220
 
+  # make deck
   deck = reduce (_.map [[{n: n, suit: suit} for n in [1..13]] for suit in [0...4]][0], (a) -> a[0]), [], (a,b) -> a.concat b
   log "generated #{deck.length} cards"
 
-  _.each $('.client-hand'), expand_on_touch_circle
+  table_state =
+    open_hand: null
 
   # place initial table cards
   for i in [0...4]
@@ -116,20 +120,33 @@ $ =>
     $target_hand = $((_.filter $('.client-hand'), (ch) -> $(ch).data('cards').length < 4)[0])
     $target_hand.data('cards').push deck[i]
 
-  # enable client hands squeeze
-  _.each $('.client-hand'), (ch) ->
+  # enable client hands open
+  enable_client_hand = (ch) ->
     $ch = $(ch)
-    $ch.data 'card_envoys', []
+    table_state.open_hand = $ch
+    expand_on_touch_circle $ch
+
+    log 'B'
     $ch.bind 'touchstart', (e) ->
-      log "clicked card #{[c.n for c in ($ch.data 'cards')]}"
+      log 'C'
+      log "clicked hand #{[c.n for c in ($ch.data 'cards')]}"
+      _.each $('.client-hand').not($ch), (el) -> $(el).unbind 'touchstart touchmove touchend'
       $ch.data 'card_envoys', _.map ($ch.data 'cards'), make_card_envoy
       center = [$ch.offset().x + $ch.width() / 2, $ch.offset().y + $ch.height() / 2]
       _.each ($ch.data 'card_envoys'), (ce, i) ->
+        angle_offset = 1.2
         $(ce).css
-          left: parseInt($ch.css 'left') + (i-2) * ($(ce).width() + 5) + $(ce).width() / 2
-          top : parseInt($ch.css 'top') - $(ce).height() - 20
+          left: parseInt($ch.css 'left') + $ch.width() / 2 + Math.cos(-Math.PI / 2 - angle_offset + angle_offset * 2/3 * i) * 160 - $(ce).width() / 2
+          top : parseInt($ch.css 'top') + $ch.height() / 2 + Math.sin(-Math.PI / 2 - angle_offset + angle_offset * 2/3 * i) * 160 - $(ce).height() / 2
+      log 'D'
 
+    log 'E'
     $ch.bind 'touchend', ->
       _.each ($ch.data 'card_envoys'), (ce) -> 
         $(ce).remove()
       $ch.data 'card_envoys', []
+      table_state.open_hand = null
+      _.each $('.client-hand').not($ch), enable_client_hand
+      log 'F'
+
+  _.each $('.client-hand'), enable_client_hand
