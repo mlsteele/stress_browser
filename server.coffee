@@ -10,4 +10,6 @@ log = -> console.log.apply console, arguments
     # @use 'static'
 
   @app.get '/', (req,res) ->
+    log 'rendering stress'
     res.render 'stress'
+    log 'rendered stress'
