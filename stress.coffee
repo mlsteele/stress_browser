@@ -126,7 +126,7 @@ $ =>
     return false if _.any [[$('.card'), 'touch-draggable-dragging'], [$('.client-hand'), 'touching']], (lc) -> _.any lc[0], (el) -> $(el).hasClass lc[1]
     ceoh = card_envoys_in_open_hand()
     log "card_envoys_in_open_hand #{ceoh.length}"
-    return unless ceoh.length is 4
+    return false unless ceoh.length is 4
 
     log "client close tests passed, closing"
     $(gstate.open_hand).data 'cards', _.map ceoh, (card_envoy) ->
@@ -141,9 +141,9 @@ $ =>
   # bind hand listeners
   $('.client-hand').bind 'touchstart', (ev) ->
     $ch = $(ev.target)
+    $ch.addClass 'touching'
     return unless gstate.open_hand is null
     pop_client_hand $ch
-    $ch.addClass 'touching'
 
   $('.client-hand').bind 'touchend', (ev) ->
     $(ev.target).removeClass 'touching'

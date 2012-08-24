@@ -1,3 +1,8 @@
+.box-shadow (@x: 0, @y: 0, @blur: 1px, @color: #000) {
+  box-shadow: @arguments;
+  -moz-box-shadow: @arguments;
+  -webkit-box-shadow: @arguments;
+}
 .rounded-corners (@radius: 5px) {
   border-radius: @radius;
   -webkit-border-radius: @radius;
@@ -43,6 +48,10 @@ body {
         margin: -15px;
         background: @color-blue-light;
       }
+
+      &.touching {
+        .box-shadow(0, 0, 50px, #fff);
+      }
     }
 
     &.card {
@@ -54,6 +63,7 @@ body {
       text-align: center;
 
       &.touch-draggable-dragging {
+        .box-shadow(0, 0, 30px, #fff);
         .circle(60px);
         margin: -10px;
         line-height: 108px;
