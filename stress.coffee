@@ -3,40 +3,6 @@ reduce = (list, memo, iterator) -> _.reduce list, iterator, memo
 
 log 'STRESS'
 
-make_touch_draggable = (el, ybounds={min: (-> -Infinity), max: (-> Infinity)}) ->
-  $el = $(el)
-  tx = 'touch-draggable-last-mouse-x'
-  ty = 'touch-draggable-last-mouse-y'
-  tdgc = 'touch-draggable-dragging'
-
-  $el.bind 'touchstart', (e) ->
-    e.preventDefault()
-    e.stopPropagation()
-    touch = e.originalEvent.targetTouches[0]
-
-    $el.data tx, touch.clientX
-    $el.data ty, touch.clientY
-
-    $el.addClass tdgc
-
-  $el.bind 'touchmove', (e) ->
-    e.preventDefault()
-    e.stopPropagation()
-    touch = e.originalEvent.targetTouches[0]
-
-    newy = parseInt($el.css 'top')  + touch.clientY - $el.data(ty)
-
-    $el.css
-      left: parseInt($el.css 'left') + touch.clientX - $el.data(tx)
-      top : Math.max(ybounds.min(), Math.min(newy, ybounds.max()))
-    # log "current (post) css: " + [($el.css 'left'), ($el.css 'top')]
-
-    $el.data tx, touch.clientX
-    $el.data ty, touch.clientY
-
-  $el.bind 'touchend', (e) ->
-    $el.removeClass tdgc
-
 $ =>
   indicate = (color) -> $('.indicator').css background: color
 
@@ -52,13 +18,60 @@ $ =>
       text: [null,'A',2,3,4,5,6,7,8,9,10,'J','Q','K'][card.n]
     $div.data 'card', card
     $div.appendTo $ '#container'
-    make_touch_draggable $div,
-      min: _.memoize -> $('#row2').position().top
-      max: -> if card_envoys_on_table().length <= 4
-          $('#row2').position().top + $('#row2').height() - 100
-        else Infinity
+    make_card_envoy_draggable $div
     $div.bind 'touchend', -> attempt_client_hand_close()
     return $div
+
+  # specialized for card envoys
+  make_card_envoy_draggable = (el) ->
+    $el = $(el)
+    tx = 'touch-draggable-last-mouse-x'
+    ty = 'touch-draggable-last-mouse-y'
+    tdgc = 'touch-draggable-dragging'
+
+    table_top = $('#row2').position().top
+    table_bottom = $('#row2').position().top + $('#row2').height() - 100
+
+    $el.bind 'touchstart', (e) ->
+      e.preventDefault()
+      e.stopPropagation()
+      touch = e.originalEvent.targetTouches[0]
+
+      $el.data tx, touch.clientX
+      $el.data ty, touch.clientY
+
+      $el.addClass tdgc
+
+    $el.bind 'touchmove', (e) ->
+      e.preventDefault()
+      e.stopPropagation()
+      touch = e.originalEvent.targetTouches[0]
+
+      newy = $el.position().top  + touch.clientY - $el.data(ty)
+      newy = Math.max table_top, newy
+      if _.include gstate.card_envoys_on_table, $el[0] and gstate.card_envoys_on_table.length <= 4
+        newy = Math.min table_bottom, newy
+
+      $el.css
+        left: $el.position().left + touch.clientX - $el.data(tx)
+        top : newy
+      # log "current (post) css: " + [($el.css 'left'), ($el.css 'top')]
+
+      $el.data tx, touch.clientX
+      $el.data ty, touch.clientY
+
+      if $el.position().top + $el.height() / 2 < $('#row2').position().top + $('#row2').height()
+        gstate.card_envoys_on_table = _.union gstate.card_envoys_on_table, [$el[0]]
+      else
+        gstate.card_envoys_on_table = _.without gstate.card_envoys_on_table, $el[0]
+
+      if _.include gstate.card_envoys_on_table, $el[0]
+        $el.addClass 'tabled'
+      else
+        $el.removeClass 'tabled'
+
+    $el.bind 'touchend', (e) ->
+      $el.removeClass tdgc
 
   ## element placement
 
@@ -84,6 +97,8 @@ $ =>
 
   gstate =
     card_envoys_on_surface: []
+    # sorry about this one. table refers to the trading slice. surface refers to the whole pad.
+    card_envoys_on_table: [] # subset of on_surface
     open_hand: null
 
   # place initial table cards
@@ -92,7 +107,8 @@ $ =>
     $ce.css
       left: 120 + i * 200
       top: (reduce ['#row1'], 0, (a, n) -> a + $(n).height()) + 110
-    gstate.card_envoys_on_surface.push $ce
+    gstate.card_envoys_on_surface.push $ce[0]
+    gstate.card_envoys_on_table.push $ce[0]
 
   # fill client hands
   _.each $('.client-hand'), (h) -> $(h).data('cards', [])
@@ -119,18 +135,12 @@ $ =>
       $ce
 
     # register card envoys
-    [gstate.card_envoys_on_surface.push ce for ce in card_envoys]
+    [gstate.card_envoys_on_surface.push $(ce)[0] for ce in card_envoys]
 
   card_envoys_in_open_hand = ->
-    _.filter gstate.card_envoys_on_surface, (card_envoy) ->
-      $ce = $(card_envoy)
-      $ce.position().top + $ce.height() / 2 > $('#row2').position().top + $('#row2').height()
-
-  card_envoys_on_table = ->
-    _.filter gstate.card_envoys_on_surface, (card_envoy) ->
-      $ce = $(card_envoy)
-      $ce.position().top + $ce.height() / 2 < $('#row2').position().top + $('#row2').height()
-
+    log "gstate.card_envoys_on_surface: #{gstate.card_envoys_on_surface.length}"
+    log "gstate.card_envoys_on_table: #{gstate.card_envoys_on_table.length}"
+    _.difference gstate.card_envoys_on_surface, gstate.card_envoys_on_table
 
   attempt_client_hand_close = ->
     log "attempting client hand close"
@@ -141,10 +151,13 @@ $ =>
     return false unless ceoh.length is 4
 
     log "client close tests passed, closing"
-    $(gstate.open_hand).data 'cards', _.map ceoh, (card_envoy) ->
+    $(gstate.open_hand).data 'cards', _.map (_.sortBy ceoh, (ce) -> $(ce).position().left), (card_envoy) ->
       $ch = $(card_envoy)
       card = $ch.data 'card'
-      gstate.card_envoys_on_surface = _.without gstate.card_envoys_on_surface, $ch
+      errbore = gstate.card_envoys_on_surface.length
+      gstate.card_envoys_on_surface = _.without gstate.card_envoys_on_surface, $ch[0]
+      if gstate.card_envoys_on_surface.length == errbore then console.error 'disappearing card not removed from surface list!'
+      gstate.card_envoys_on_table = _.without gstate.card_envoys_on_table, $ch[0]
       $ch.remove()
       card
 
