@@ -51,7 +51,7 @@ $ =>
     $div.data 'card', card
     $div.appendTo $ '#container'
     make_touch_draggable $div
-    $div.bind 'touchend', attempt_client_hand_close
+    $div.bind 'touchend', -> attempt_client_hand_close()
     return $div
 
   ## element placement
@@ -74,18 +74,19 @@ $ =>
   deck = reduce (_.map [[{n: n, suit: suit} for n in [1..13]] for suit in [0...4]][0], (a) -> a[0]), [], (a,b) -> a.concat b
   log "generated #{deck.length} cards"
 
+  ## initial data fills
+
+  gstate =
+    card_envoys_on_surface: []
+    open_hand: null
+
   # place initial table cards
   for i in [0...4]
     $ce = $(make_card_envoy(deck[i]))
     $ce.css
       left: 120 + i * 200
       top: (reduce ['#row1'], 0, (a, n) -> a + $(n).height()) + 110
-
-  ## initial data fills
-
-  gstate =
-    card_envoys_on_surface: []
-    open_hand: null
+    gstate.card_envoys_on_surface.push $ce
 
   # fill client hands
   _.each $('.client-hand'), (h) -> $(h).data('cards', [])
@@ -122,6 +123,7 @@ $ =>
   attempt_client_hand_close = ->
     log "attempting client hand close"
     return true if gstate.open_hand is null
+    return false if _.any [[$('.card'), 'touch-draggable-dragging'], [$('.client-hand'), 'touching']], (lc) -> _.any lc[0], (el) -> $(el).hasClass lc[1]
     ceoh = card_envoys_in_open_hand()
     log "card_envoys_in_open_hand #{ceoh.length}"
     return unless ceoh.length is 4
@@ -141,5 +143,8 @@ $ =>
     $ch = $(ev.target)
     return unless gstate.open_hand is null
     pop_client_hand $ch
+    $ch.addClass 'touching'
 
-  $('.client-hand').bind 'touchend', attempt_client_hand_close
+  $('.client-hand').bind 'touchend', (ev) ->
+    $(ev.target).removeClass 'touching'
+    attempt_client_hand_close()
