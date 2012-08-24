@@ -19,6 +19,7 @@ body {
   @color-black: #000;
   @color-dark: #463F3F;
   @color-blue: #A395CE;
+  @color-blue-light: #C0B8D8;
 
   .indicator {
     position: absolute;
@@ -36,6 +37,14 @@ body {
     .circle(50px);
     background: @color-blue;
 
+    &.client-hand {
+      &.open {
+        .circle(65px);
+        margin: -15px;
+        background: @color-blue-light;
+      }
+    }
+
     &.card {
       background: @color-blue;
 
@@ -43,6 +52,12 @@ body {
       color: #fff;
       font-size: 50px;
       text-align: center;
+
+      &.touch-draggable-dragging {
+        .circle(60px);
+        margin: -10px;
+        line-height: 108px;
+      }
     }
   }
 

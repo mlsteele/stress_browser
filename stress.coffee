@@ -7,6 +7,7 @@ make_touch_draggable = (el) ->
   $el = $(el)
   tx = 'touch-draggable-last-mouse-x'
   ty = 'touch-draggable-last-mouse-y'
+  tdgc = 'touch-draggable-dragging'
 
   $el.bind 'touchstart', (e) ->
     e.preventDefault()
@@ -16,6 +17,8 @@ make_touch_draggable = (el) ->
     $el.data tx, touch.clientX
     $el.data ty, touch.clientY
 
+    $el.addClass tdgc
+
   $el.bind 'touchmove', (e) ->
     e.preventDefault()
     e.stopPropagation()
@@ -23,50 +26,14 @@ make_touch_draggable = (el) ->
 
     $el.css
       left: parseInt($el.css 'left') + touch.clientX - $el.data(tx)
-      top : parseInt($el.css 'top') + touch.clientY - $el.data(ty)
+      top : parseInt($el.css 'top')  + touch.clientY - $el.data(ty)
     # log "current (post) css: " + [($el.css 'left'), ($el.css 'top')]
 
     $el.data tx, touch.clientX
     $el.data ty, touch.clientY
 
-expand_on_touch_circle = (el) ->
-  rads = [50, 60]
-  $el = $(el)
-  set_size = (r) ->
-    $el.css
-      width: r * 2
-      height: r * 2
-      'border-top-left-radius': r
-      'border-top-right-radius': r
-      'border-bottom-left-radius': r
-      'border-bottom-right-radius': r
-      'line-height': r * 2 + 'px'
-
-  $el.bind 'touchstart', ->
-    set_size(rads[1])
-    $el.css
-      left: parseInt($el.css('left')) + rads[0] - rads[1]
-      top : parseInt($el.css('top')) + rads[0] - rads[1]
-    # if $el.data 'touch-draggable-last-mouse-x' != undefined
-    #   $el.data 'touch-draggable-last-mouse-x', $el.data('touch-draggable-last-mouse-x') + rads[1] - rads[0]
-    #   $el.data 'touch-draggable-last-mouse-y', $el.data('touch-draggable-last-mouse-y') + rads[1] - rads[0]
-
-  $el.bind 'touchend', ->
-    set_size(rads[0])
-    $el.css
-      left: parseInt($el.css('left')) + rads[1] - rads[0]
-      top : parseInt($el.css('top')) + rads[1] - rads[0]
-
-make_card_envoy = (card) ->
-  $ 'div'
-  $div = $ '<div/>',
-    class: 'g-entity card'
-    text: [null,'A',2,3,4,5,6,7,8,9,10,'J','Q','K'][card.n]
-  $div.data 'card', card
-  $div.appendTo $ '#container'
-  make_touch_draggable $div
-  expand_on_touch_circle $div
-  return $div
+  $el.bind 'touchend', (e) ->
+    $el.removeClass tdgc
 
 $ =>
   indicate = (color) -> $('.indicator').css background: color
@@ -76,14 +43,18 @@ $ =>
 
   $('#container').css height: $(document).height()
 
-  $('.table-card').bind 'touchstart', ->
-    indicate '#0f0'
+  make_card_envoy = (card) ->
+    $ 'div'
+    $div = $ '<div/>',
+      class: 'g-entity card'
+      text: [null,'A',2,3,4,5,6,7,8,9,10,'J','Q','K'][card.n]
+    $div.data 'card', card
+    $div.appendTo $ '#container'
+    make_touch_draggable $div
+    $div.bind 'touchend', attempt_client_hand_close
+    return $div
 
-  $('.table-card').bind 'touchmove', ->
-    indicate '#00f'
-
-  $('.table-card').bind 'touchend', ->
-    indicate '#f00'
+  ## element placement
 
   # place enemy hands
   _.each $('.enemy-hand'), (eh, i) ->
@@ -103,15 +74,18 @@ $ =>
   deck = reduce (_.map [[{n: n, suit: suit} for n in [1..13]] for suit in [0...4]][0], (a) -> a[0]), [], (a,b) -> a.concat b
   log "generated #{deck.length} cards"
 
-  table_state =
-    open_hand: null
-
   # place initial table cards
   for i in [0...4]
     $ce = $(make_card_envoy(deck[i]))
     $ce.css
       left: 120 + i * 200
       top: (reduce ['#row1'], 0, (a, n) -> a + $(n).height()) + 110
+
+  ## initial data fills
+
+  gstate =
+    card_envoys_on_surface: []
+    open_hand: null
 
   # fill client hands
   _.each $('.client-hand'), (h) -> $(h).data('cards', [])
@@ -120,33 +94,52 @@ $ =>
     $target_hand = $((_.filter $('.client-hand'), (ch) -> $(ch).data('cards').length < 4)[0])
     $target_hand.data('cards').push deck[i]
 
-  # enable client hands open
-  enable_client_hand = (ch) ->
-    $ch = $(ch)
-    table_state.open_hand = $ch
-    expand_on_touch_circle $ch
+  pop_client_hand = (client_hand) ->
+    $ch = $(client_hand)
+    log "popping client hand of #{[c.n for c in ($ch.data 'cards')]}"
+    $ch = $(client_hand)
+    gstate.open_hand = $ch
+    $ch.addClass 'open'
 
-    log 'B'
-    $ch.bind 'touchstart', (e) ->
-      log 'C'
-      log "clicked hand #{[c.n for c in ($ch.data 'cards')]}"
-      _.each $('.client-hand').not($ch), (el) -> $(el).unbind 'touchstart touchmove touchend'
-      $ch.data 'card_envoys', _.map ($ch.data 'cards'), make_card_envoy
+    # create card envoys
+    card_envoys = _.map ($ch.data 'cards'), (card, i) ->
+      $ce = $ make_card_envoy card
       center = [$ch.offset().x + $ch.width() / 2, $ch.offset().y + $ch.height() / 2]
-      _.each ($ch.data 'card_envoys'), (ce, i) ->
-        angle_offset = 1.2
-        $(ce).css
-          left: parseInt($ch.css 'left') + $ch.width() / 2 + Math.cos(-Math.PI / 2 - angle_offset + angle_offset * 2/3 * i) * 160 - $(ce).width() / 2
-          top : parseInt($ch.css 'top') + $ch.height() / 2 + Math.sin(-Math.PI / 2 - angle_offset + angle_offset * 2/3 * i) * 160 - $(ce).height() / 2
-      log 'D'
+      angle_offset = 1.2
+      $ce.css
+        left: parseInt($ch.css 'left') + $ch.width() / 2 + Math.cos(-Math.PI / 2 - angle_offset + angle_offset * 2 / 3 * i) * 160 - $ce.width() / 2
+        top : parseInt($ch.css 'top') + $ch.height() / 2 + Math.sin(-Math.PI / 2 - angle_offset + angle_offset * 2 / 3 * i) * 160 - $ce.height() / 2
+      $ce
 
-    log 'E'
-    $ch.bind 'touchend', ->
-      _.each ($ch.data 'card_envoys'), (ce) -> 
-        $(ce).remove()
-      $ch.data 'card_envoys', []
-      table_state.open_hand = null
-      _.each $('.client-hand').not($ch), enable_client_hand
-      log 'F'
+    # register card envoys
+    [gstate.card_envoys_on_surface.push ce for ce in card_envoys]
 
-  _.each $('.client-hand'), enable_client_hand
+  card_envoys_in_open_hand = ->
+    _.filter gstate.card_envoys_on_surface, (card_envoy) ->
+      $ce = $(card_envoy)
+      $ce.position().top + $ce.height() / 2 > $('#row2').position().top + $('#row2').height()
+
+  attempt_client_hand_close = ->
+    log "attempting client hand close"
+    return true if gstate.open_hand is null
+    ceoh = card_envoys_in_open_hand()
+    log "card_envoys_in_open_hand #{ceoh.length}"
+    return unless ceoh.length is 4
+
+    log "client close tests passed, closing"
+    $(gstate.open_hand).data 'cards', _.map ceoh, (card_envoy) ->
+      $ch = $(card_envoy)
+      card = $ch.data 'card'
+      $ch.remove()
+      card
+
+    $(gstate.open_hand).removeClass 'open'
+    gstate.open_hand = null
+
+  # bind hand listeners
+  $('.client-hand').bind 'touchstart', (ev) ->
+    $ch = $(ev.target)
+    return unless gstate.open_hand is null
+    pop_client_hand $ch
+
+  $('.client-hand').bind 'touchend', attempt_client_hand_close
