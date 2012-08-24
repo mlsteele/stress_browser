@@ -49,7 +49,7 @@ $ =>
 
       newy = $el.position().top  + touch.clientY - $el.data(ty)
       newy = Math.max table_top, newy
-      if _.include gstate.card_envoys_on_table, $el[0] and gstate.card_envoys_on_table.length <= 4
+      if (_.include gstate.card_envoys_on_table, $el[0]) and gstate.card_envoys_on_table.length <= 4
         newy = Math.min table_bottom, newy
 
       $el.css
@@ -150,7 +150,7 @@ $ =>
     log "card_envoys_in_open_hand #{ceoh.length}"
     return false unless ceoh.length is 4
 
-    log "client close tests passed, closing"
+    log "client hand close tests passed, closing"
     $(gstate.open_hand).data 'cards', _.map (_.sortBy ceoh, (ce) -> $(ce).position().left), (card_envoy) ->
       $ch = $(card_envoy)
       card = $ch.data 'card'
