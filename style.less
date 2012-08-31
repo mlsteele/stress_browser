@@ -34,7 +34,13 @@ body {
     .circle(50px);
     background: @color-blue;
 
+    &.enemy-hand {
+      z-index: 50;
+    }
+
     &.client-hand {
+      z-index: 30;
+
       &.open {
         .circle(65px);
         margin: -15px;
@@ -47,12 +53,15 @@ body {
     }
 
     &.card {
-      background: @color-blue;
+      z-index: 40;
 
       line-height: 90px;
       color: #fff;
       font-size: 50px;
       text-align: center;
+      background: @color-blue;
+      .box-shadow(0, 0, 20px, rgba(0,0,0,0.5));
+      font-family: "Cochin-Bold";
 
       &.touch-draggable-dragging {
         .box-shadow(0, 0, 30px, #fff);
@@ -63,6 +72,10 @@ body {
 
       &.tabled {
         background: #f00;
+      }
+
+      &.claimed {
+        background: #FF9100;
       }
     }
   }
