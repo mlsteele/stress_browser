@@ -221,48 +221,68 @@ $ =>
   # (enemy_hand) unwrapped DOM element
   enemy_claim_card = (card_envoy, enemy_hand, cb) ->
     log "claim", card_envoy, enemy_hand
-    $ce = $(card_envoy); $eh = $(enemy_hand)
-    return false if $ce.hasClass css_styles.touch_draggable_dragging
+    $card_envoy = $(card_envoy)
+    $enemy_hand = $(enemy_hand)
+
+    # return false if $card_envoy.hasClass css_styles.touch_draggable_dragging
     # move to hand in model
-    $ce.addClass css_styles.claimed
-    gstate.card_envoys_on_table = _.without gstate.card_envoys_on_table, $ce[0]
-    gstate.card_envoys_on_surface = _.without gstate.card_envoys_on_surface, $ce[0]
-    $eh.data('cards').push $ce.data 'card'
+    $card_envoy.addClass css_styles.claimed
+    gstate.card_envoys_on_table = _.without gstate.card_envoys_on_table, $card_envoy[0]
+    gstate.card_envoys_on_surface = _.without gstate.card_envoys_on_surface, $card_envoy[0]
+    $enemy_hand.data('cards').push $card_envoy.data 'card'
 
     # animate away
-    $ce.animate
+    duration = 1000
+    $card_envoy.css
+      transition: "all #{duration}ms ease-in-out"
       transform: translate3d
-        x: get_translate3d(eh).x
-        y: get_translate3d(eh).y
-      , {duration: 500, complete: -> $ce.remove(); cb?()}
+        x: get_translate3d($enemy_hand).x
+        y: get_translate3d($enemy_hand).y
+
+    plantTimeout duration, ->
+      $card_envoy.remove()
+      $card_envoy.css transition: ''
+      cb?()
 
   # (card) card
   # (enemy_hand) unwrapped DOM element
   enemy_spit_card = (card, enemy_hand, cb) ->
-    $eh = $(enemy_hand)
-    $eh.data 'cards', _.without $eh.data('cards'), card
-    $ce = make_card_envoy card
-    $ce.addClass css_styles.claimed
+    $enemy_hand = $(enemy_hand)
+    $enemy_hand.data 'cards', _.without $enemy_hand.data('cards'), card
+    $card_envoy = make_card_envoy card
+    $card_envoy.addClass css_styles.claimed
 
     when_done = ->
       # add to game model
-      gstate.card_envoys_on_surface.push $ce[0]
-      gstate.card_envoys_on_table.push $ce[0]
-      $ce.removeClass(css_styles.claimed).addClass(css_styles.tabled_card)
+      gstate.card_envoys_on_surface.push $card_envoy[0]
+      gstate.card_envoys_on_table.push $card_envoy[0]
+      $card_envoy.removeClass(css_styles.claimed).addClass(css_styles.tabled_card)
+      log 'DONE'
       cb?()
 
-    $ce.css
+    $card_envoy.css
       transform: translate3d
-        x: get_translate3d($eh).x
-        y: get_translate3d($eh).y
+        x: get_translate3d($enemy_hand).x
+        y: get_translate3d($enemy_hand).y
 
-    $ce.animate
+    # $card_envoy.transit
+    #   x: ($('#row2').width() - 200) * Math.random() + 50
+    #   y: get_translate3d($('#row2')).y + 18
+    #   duration: 500
+    #   complete: when_done
+
+    duration = 500
+    $card_envoy.css
+      transition: "all #{duration}ms ease-in-out"
       transform: translate3d
         x: ($('#row2').width() - 200) * Math.random() + 50
-        y: get_translate3d($('#row2')).y + 18
-      , {duration: 500, complete: when_done}
+        y: $('#row2').position().top + 18
 
-    return $ce
+    plantTimeout duration, ->
+      $card_envoy.css transition: ''
+      when_done()
+
+    return $card_envoy
 
   # plantTimeout 1000, -> enemy_claim_card(gstate.card_envoys_on_table[0], $('.enemy-hand').first())
   # plantTimeout 3000, -> enemy_spit_card($('.enemy-hand').first().data('cards')[0], $('.enemy-hand').first())
@@ -289,17 +309,5 @@ $ =>
     # $card = $(gstate.card_envoys_on_table[0])
     enemy_claim_card $card, $hand, cb
 
-  # do card_loop = -> enemy_spit_random_card -> enemy_claim_random_card card_loop
-
-  # cC = $(gstate.card_envoys_on_table[0])
-  # log cC
-  # plantTimeout 100, ->
-  #   cC.css
-  #     left: 1
-  #     transform: 'translate3d(400px,0,0)'
-  #   log 'bleep'
-
-# .css
-#   transform: 3dtransform
-#     x: x
-#     y: y
+  do card_loop = -> enemy_spit_random_card -> enemy_claim_random_card card_loop
+  # enemy_spit_random_card()
