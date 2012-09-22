@@ -16,7 +16,7 @@ css_styles =
   claimed: 'claimed'
 
 $ =>
-  indicate = (color) -> $('.indicator').css background: color
+  # transform3d = {x, y} -> return "translate3d(#{x}px, #{y}px)"
 
   # disable page scrolling
   _.each ['touchstart', 'touchmove'], (evn) -> _.each [document, document.body], (thing) -> thing.addEventListener evn, (e) -> e.preventDefault()
@@ -197,7 +197,9 @@ $ =>
     attempt_client_hand_close()
 
   ## enemy utilities
-  enemy_claim_card = (card_envoy, enemy_hand) ->
+  # (card_envoy) unwrapped DOM element
+  # (enemy_hand) unwrapped DOM element
+  enemy_claim_card = (card_envoy, enemy_hand, cb) ->
     log "claim", card_envoy, enemy_hand
     $ce = $(card_envoy); $eh = $(enemy_hand)
     return false if $ce.hasClass css_styles.touch_draggable_dragging
@@ -211,19 +213,22 @@ $ =>
     $ce.animate
       left: $eh.position().left
       top: $eh.position().top
-      , {duration: 500, complete: -> log 'foo'; $ce.remove()}
+      , {duration: 500, complete: -> $ce.remove(); cb?()}
 
-  enemy_spit_card = (card, enemy_hand) ->
+  # (card) card
+  # (enemy_hand) unwrapped DOM element
+  enemy_spit_card = (card, enemy_hand, cb) ->
     $eh = $(enemy_hand)
     $eh.data 'cards', _.without $eh.data('cards'), card
     $ce = make_card_envoy card
     $ce.addClass css_styles.claimed
 
-    when_done = -> 
+    when_done = ->
       # add to game model
       gstate.card_envoys_on_surface.push $ce[0]
       gstate.card_envoys_on_table.push $ce[0]
       $ce.removeClass(css_styles.claimed).addClass(css_styles.tabled_card)
+      cb?()
 
     $ce.css
       left: $eh.position().left
@@ -232,17 +237,46 @@ $ =>
     $ce.animate
       left: ($('#row2').width() - 200) * Math.random() + 50
       top : $('#row2').position().top + 18
-      , {duration: 1000, complete: when_done}
+      , {duration: 500, complete: when_done}
 
     return $ce
 
   # plantTimeout 1000, -> enemy_claim_card(gstate.card_envoys_on_table[0], $('.enemy-hand').first())
   # plantTimeout 3000, -> enemy_spit_card($('.enemy-hand').first().data('cards')[0], $('.enemy-hand').first())
 
-  do ->
-    card = $('.enemy-hand').first().data('cards')[0]
-    hand = $('.enemy-hand').first()
-    plantTimeout 1000, ->
-      $card_envoy = enemy_spit_card card, hand
-      plantTimeout 2000, ->
-        enemy_claim_card $card_envoy, hand
+  # do ->
+  #   card = $('.enemy-hand').first().data('cards')[0]
+  #   hand = $('.enemy-hand').first()
+  #   plantTimeout 1000, ->
+  #     $card_envoy = enemy_spit_card card, hand
+  #     plantTimeout 2000, ->
+  #       enemy_claim_card $card_envoy, hand
+
+  enemy_spit_random_card = (cb) ->
+    $hand = $('.enemy-hand').first()
+    card = $hand.data('cards')[0]
+    $card = enemy_spit_card card, $hand, cb
+
+  enemy_claim_random_card = (cb) ->
+    $hand = $('.enemy-hand').first()
+    log "len #{gstate.card_envoys_on_table.length}"
+    valid_cards = _.filter gstate.card_envoys_on_table, (c) -> not $(c).hasClass css_styles.touch_draggable_dragging
+    $card = $(valid_cards[0])
+    $card.css 'background-color': '#0f0'
+    # $card = $(gstate.card_envoys_on_table[0])
+    enemy_claim_card $card, $hand, cb
+
+  do card_loop = -> enemy_spit_random_card -> enemy_claim_random_card card_loop
+
+  # cC = $(gstate.card_envoys_on_table[0])
+  # log cC
+  # plantTimeout 100, ->
+  #   cC.css
+  #     left: 1
+  #     transform: 'translate3d(400px,0,0)'
+  #   log 'bleep'
+
+# .css
+#   transform: 3dtransform
+#     x: x
+#     y: y
