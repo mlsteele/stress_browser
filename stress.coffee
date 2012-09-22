@@ -7,6 +7,8 @@ log 'STRESS'
 css_styles =
   touch_draggable_mx: 'touch-draggable-last-mouse-x'
   touch_draggable_my: 'touch-draggable-last-mouse-y'
+  touch_draggable_offset_x: 'touch-draggable-offset-x'
+  touch_draggable_offset_y: 'touch-draggable-offset-y'
   touch_draggable_dragging: 'touch-draggable-dragging'
   game_entity: 'g-entity'
   card: 'card'
@@ -16,10 +18,16 @@ css_styles =
   claimed: 'claimed'
 
 $ =>
-  # transform3d = {x, y} -> return "translate3d(#{x}px, #{y}px)"
+  translate3d = ({x, y}) -> return "translate3d(#{x}px, #{y}px, 0)"
+  get_translate3d = (el) ->
+    matrix = $(el).css('transform').match(/[0-9\.]+/g)
+    return x: 0, y: 0 if matrix is null
+    x: +matrix[4], y: +matrix[5]
 
   # disable page scrolling
-  _.each ['touchstart', 'touchmove'], (evn) -> _.each [document, document.body], (thing) -> thing.addEventListener evn, (e) -> e.preventDefault()
+  _.each ['touchstart', 'touchmove'], (evn) ->
+    _.each [document, document.body], (thing) ->
+      thing.addEventListener evn, (e) -> e.preventDefault()
 
   $('#container').css height: $(document).height()
 
@@ -39,10 +47,12 @@ $ =>
     $el = $(el)
     tx = css_styles.touch_draggable_mx
     ty = css_styles.touch_draggable_my
+    tox = css_styles.touch_draggable_offset_x
+    toy = css_styles.touch_draggable_offset_y
     tdgc = css_styles.touch_draggable_dragging
 
     table_top = $('#row2').position().top
-    table_bottom = $('#row2').position().top + $('#row2').height() - 100
+    table_bottom = table_top + $('#row2').height()
 
     $el.bind 'touchstart', (e) ->
       e.preventDefault()
@@ -51,8 +61,11 @@ $ =>
 
       touch = e.originalEvent.targetTouches[0]
 
-      $el.data tx, touch.clientX
-      $el.data ty, touch.clientY
+      # $el.data tx, touch.clientX
+      # $el.data ty, touch.clientY
+
+      $el.data tox, get_translate3d($el).x - touch.clientX
+      $el.data toy, get_translate3d($el).y - touch.clientY
 
       $el.addClass tdgc
 
@@ -62,28 +75,30 @@ $ =>
       return if $el.hasClass css_styles.claimed
       touch = e.originalEvent.targetTouches[0]
 
-      newy = $el.position().top  + touch.clientY - $el.data(ty)
+      newy = touch.clientY + $el.data toy
       newy = Math.max table_top, newy
       if (_.include gstate.card_envoys_on_table, $el[0]) and gstate.card_envoys_on_table.length <= 4
-        newy = Math.min table_bottom, newy
+        log 'hop'
+        newy = Math.min table_bottom - $el.height() * 4/5, newy
 
       $el.css
-        left: $el.position().left + touch.clientX - $el.data(tx)
-        top : newy
+        transform: translate3d
+          x: touch.clientX + $el.data tox
+          y: newy
       # log "current (post) css: " + [($el.css 'left'), ($el.css 'top')]
 
-      $el.data tx, touch.clientX
-      $el.data ty, touch.clientY
+      # $el.data tx, touch.clientX
+      # $el.data ty, touch.clientY
 
-      if $el.position().top + $el.height() / 2 < $('#row2').position().top + $('#row2').height()
+      # if center above table bottom
+      if get_translate3d($el).y + $el.height() * 3/4 < table_bottom
+        # add to table list
         gstate.card_envoys_on_table = _.union gstate.card_envoys_on_table, [$el[0]]
-      else
-        gstate.card_envoys_on_table = _.without gstate.card_envoys_on_table, $el[0]
-
-      if _.include gstate.card_envoys_on_table, $el[0]
         $el.addClass css_styles.tabled_card
       else
-        $el.removeClass css_styles.tabled_card
+        # remove from table list
+        gstate.card_envoys_on_table = _.without gstate.card_envoys_on_table, $el[0]
+        $el.removeClass css_styles.tabled_card        
 
     $el.bind 'touchend touchcancel', (e) -> $el.removeClass tdgc
 
@@ -92,16 +107,17 @@ $ =>
   # place enemy hands
   _.each $('.enemy-hand'), (eh, i) ->
     pad = $('#row1').width() - $(eh).width() * 6
-    $(eh).css
-      left: (pad / 6 + $(eh).width()) * i + pad / 7 / 2
-      top: $('#row1').height() / 2 - $(eh).height() / 2
+    $(eh).css transform: translate3d
+      x: (pad / 6 + $(eh).width()) * i + pad / 7 / 2
+      y: $('#row1').height() / 2 - $(eh).height() / 2
 
   # place client hands
   _.each $('.client-hand'), (ch, i) ->
     left_offset = 210
     $(ch).css
-      left: (i % 3) * ($('#row4').width()/2 - left_offset - $(ch).width()/2) + left_offset
-      top: (reduce ['#row1', '#row2', '#row3'], 0, (a, n) -> a + $(n).height()) + 150 + Math.floor(i / 3) * 220
+      transform: translate3d
+        x: (i % 3) * ($('#row4').width()/2 - left_offset - $(ch).width()/2) + left_offset
+        y: (reduce ['#row1', '#row2', '#row3'], 0, (a, n) -> a + $(n).height()) + 150 + Math.floor(i / 3) * 220
 
   # make deck
   deck = reduce (_.map [[{n: n, suit: suit} for n in [1..13]] for suit in [0...4]][0], (a) -> a[0]), [], (a,b) -> a.concat b
@@ -119,8 +135,9 @@ $ =>
   for i in [0...4]
     $ce = $(make_card_envoy(deck[i]))
     $ce.addClass(css_styles.tabled_card).css
-      left: 120 + i * 200
-      top: (reduce ['#row1'], 0, (a, n) -> a + $(n).height()) + 110
+      transform: translate3d
+        x: 120 + i * 200
+        y: (reduce ['#row1'], 0, (a, n) -> a + $(n).height()) + 110
     gstate.card_envoys_on_surface.push $ce[0]
     gstate.card_envoys_on_table.push $ce[0]
 
@@ -139,21 +156,24 @@ $ =>
     $target_hand.data('cards').push deck[i]
 
   pop_client_hand = (client_hand) ->
-    $ch = $(client_hand)
-    log "popping client hand of #{[c.n for c in ($ch.data 'cards')]}"
-    $ch = $(client_hand)
-    gstate.open_hand = $ch
-    $ch.addClass css_styles.open_hand
+    $client_hand = $(client_hand)
+    log "popping client hand of #{[c.n for c in ($client_hand.data 'cards')]}"
+    gstate.open_hand = $client_hand
+    $client_hand.addClass css_styles.open_hand
 
     # create card envoys
-    card_envoys = _.map ($ch.data 'cards'), (card, i) ->
-      $ce = $ make_card_envoy card
-      center = [$ch.offset().x + $ch.width() / 2, $ch.offset().y + $ch.height() / 2]
+    card_envoys = _.map ($client_hand.data 'cards'), (card, i) ->
+      $card_envoy = $ make_card_envoy card
       angle_offset = 1.2
-      $ce.css
-        left: parseInt($ch.css 'left') + $ch.width() / 2 + Math.cos(-Math.PI / 2 - angle_offset + angle_offset * 2 / 3 * i) * 160 - $ce.width() / 2
-        top : parseInt($ch.css 'top') + $ch.height() / 2 + Math.sin(-Math.PI / 2 - angle_offset + angle_offset * 2 / 3 * i) * 160 - $ce.height() / 2
-      $ce
+      log "chtr: #{get_translate3d($client_hand).x}, #{get_translate3d($client_hand).y}"
+      nx = get_translate3d($client_hand).x + $client_hand.width() / 2 + Math.cos(-Math.PI / 2 - angle_offset + angle_offset * 2 / 3 * i) * 160 - $card_envoy.width() / 2
+      ny = get_translate3d($client_hand).y + $client_hand.height() / 2 + Math.sin(-Math.PI / 2 - angle_offset + angle_offset * 2 / 3 * i) * 160 - $card_envoy.height() / 2
+      log "x: #{nx}, y: #{ny}"
+      $card_envoy.css
+        transform: translate3d
+          x: nx
+          y: ny
+      $card_envoy
 
     # register card envoys
     [gstate.card_envoys_on_surface.push $(ce)[0] for ce in card_envoys]
@@ -172,7 +192,7 @@ $ =>
     return false unless ceoh.length is 4
 
     log "client hand close tests passed, closing"
-    $(gstate.open_hand).data 'cards', _.map (_.sortBy ceoh, (ce) -> $(ce).position().left), (card_envoy) ->
+    $(gstate.open_hand).data 'cards', _.map (_.sortBy ceoh, (ce) -> get_translate3d(ce).x), (card_envoy) ->
       $ch = $(card_envoy)
       card = $ch.data 'card'
       errbore = gstate.card_envoys_on_surface.length
@@ -211,8 +231,9 @@ $ =>
 
     # animate away
     $ce.animate
-      left: $eh.position().left
-      top: $eh.position().top
+      transform: translate3d
+        x: get_translate3d(eh).x
+        y: get_translate3d(eh).y
       , {duration: 500, complete: -> $ce.remove(); cb?()}
 
   # (card) card
@@ -231,12 +252,14 @@ $ =>
       cb?()
 
     $ce.css
-      left: $eh.position().left
-      top : $eh.position().top
+      transform: translate3d
+        x: get_translate3d($eh).x
+        y: get_translate3d($eh).y
 
     $ce.animate
-      left: ($('#row2').width() - 200) * Math.random() + 50
-      top : $('#row2').position().top + 18
+      transform: translate3d
+        x: ($('#row2').width() - 200) * Math.random() + 50
+        y: get_translate3d($('#row2')).y + 18
       , {duration: 500, complete: when_done}
 
     return $ce
@@ -266,7 +289,7 @@ $ =>
     # $card = $(gstate.card_envoys_on_table[0])
     enemy_claim_card $card, $hand, cb
 
-  do card_loop = -> enemy_spit_random_card -> enemy_claim_random_card card_loop
+  # do card_loop = -> enemy_spit_random_card -> enemy_claim_random_card card_loop
 
   # cC = $(gstate.card_envoys_on_table[0])
   # log cC
